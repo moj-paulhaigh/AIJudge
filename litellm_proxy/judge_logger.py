@@ -122,7 +122,7 @@ if not logger.handlers:
 # Provider model string the Judge calls DIRECTLY (bypassing our own proxy)
 # for its LLM-as-judge verdicts. Bypassing the proxy avoids the judge's own
 # calls being logged/judged recursively.
-JUDGE_MODEL = os.environ.get("AIJUDGE_JUDGE_MODEL", "gemini/gemini-3.6-flash")
+JUDGE_MODEL = os.environ.get("AIJUDGE_JUDGE_MODEL", "azure/gpt-5.6-luna")
 
 # Rule definitions live in judge_rules.py (shared with the Judge Dashboard,
 # which displays them) so the dashboard can never drift out of sync with
@@ -730,8 +730,8 @@ class JudgeLogger(CustomLogger):
                 resp = await litellm.acompletion(
                     model=JUDGE_MODEL,
                     messages=[{"role": "user", "content": prompt}],
-                    api_key=os.environ.get("GEMINI_API_KEY"),
-                    temperature=0,
+                    api_key=os.environ.get("AZURE_API_KEY"),
+                    temperature=1,
                     metadata={"aijudge_internal": True},
                 )
                 content = (resp.choices[0].message.content or "").strip()

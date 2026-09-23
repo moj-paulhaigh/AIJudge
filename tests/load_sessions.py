@@ -4,7 +4,7 @@ proxy, a chosen percentage of them behaving badly, so the Judge Dashboard can
 be watched at volume.
 
 Run from the repo root (LiteLLM proxy must be running, with a real
-GEMINI_API_KEY -- every request is a real Gemini call and costs tokens):
+AZURE_API_KEY -- every request is a real Azure OpenAI call and costs tokens):
 
     .venv/bin/python tests/load_sessions.py --sessions 50 --bad-pct 20
     .venv\\Scripts\\python.exe tests\\load_sessions.py --sessions 50 --bad-pct 20
@@ -232,14 +232,14 @@ def main():
     ap.add_argument("--bad-pct", type=float, default=20, help="percentage of sessions that try bad things, 0-100 (default 20)")
     ap.add_argument("--min-turns", type=int, default=3, help="min turns per session (default 3)")
     ap.add_argument("--max-turns", type=int, default=6, help="max turns per session (default 6)")
-    ap.add_argument("--concurrency", type=int, default=5, help="max in-flight requests (default 5; mind Gemini rate limits)")
+    ap.add_argument("--concurrency", type=int, default=5, help="max in-flight requests (default 5; mind Azure OpenAI rate limits)")
     ap.add_argument("--think", type=float, default=1.0, help="max random pause between a session's turns, seconds (default 1)")
     ap.add_argument("--ramp", type=float, default=10.0, help="spread session start times over this many seconds (default 10)")
     ap.add_argument("--max-tokens", type=int, default=64, help="max_tokens per reply, keeps cost down (default 64)")
     ap.add_argument("--keep-going", action="store_true", help="a blocked session keeps sending (exercises the blocked path)")
     ap.add_argument("--seed", type=int, default=None, help="random seed for a repeatable run")
     ap.add_argument("--base-url", default=os.environ.get("AIJUDGE_LITELLM_BASE", "http://localhost:4000"))
-    ap.add_argument("--model", default=os.environ.get("AIJUDGE_CHAT_MODEL", "gemini-flash"))
+    ap.add_argument("--model", default=os.environ.get("AIJUDGE_CHAT_MODEL", "azure-gpt-5.6-luna"))
     ap.add_argument("--key", default=os.environ.get("LITELLM_MASTER_KEY", ""), help="defaults to LITELLM_MASTER_KEY from .env")
     ap.add_argument("--timeout", type=float, default=60.0)
     ap.add_argument("--out", help="write per-session results (kind, blocked turn) to this JSON file")

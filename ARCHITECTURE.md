@@ -47,13 +47,13 @@ flowchart LR
     end
 
     RULES["judge_rules.py<br/>(shared, no side effects)"]
-    G[("Gemini API")]
+    G[("Azure OpenAI API")]
     DATA[("data/ on local disk<br/>logs, verdicts,<br/>aijudge.db (SQLite)")]
 
     A -- "POST /api/chat<br/>{session_id, message}" --> BE
     B -- "POST /api/chat<br/>{session_id, message}" --> BE
     BE -- "POST /chat/completions<br/>Bearer LITELLM_MASTER_KEY" --> LP
-    LP -- "gemini/gemini-3.6-flash" --> G
+    LP -- "azure/gpt-5.6-luna" --> G
 
     LP -. "async_pre_call_hook<br/>(fast rules, in request path)" .-> J
     LP -. "async_log_success/failure_event<br/>(fire-and-forget, after response sent)" .-> J
@@ -77,7 +77,7 @@ intentional, not an omission (see §5).
 |---|---|---|
 | Frontend (chat UI) | `chatui/frontend/index.html`, `app.js`, `style.css` | Two `ChatPanel` instances, each owning its own client-generated session id; polls `/api/status` for shared judge activity; animates a request pipeline per panel; shows each session's fast-rule latency and suspicion score. |
 | Chat UI backend | `chatui/backend/app.py` | Stateless proxy between browser and LiteLLM; adds the `Authorization` header the browser never sees; reads the session store to echo each request's fast-rule latency (`fast_check_ms`); exposes a lightweight `/api/status` (verdicts, blocklist, per-session summary) for its own sidebar. |
-| LiteLLM proxy | `litellm_proxy/config.yaml` | Declares the `gemini-flash` model and registers the Judge callback. |
+| LiteLLM proxy | `litellm_proxy/config.yaml` | Declares the `azure-gpt-5.6-luna` model and registers the Judge callback. |
 | Judge | `litellm_proxy/judge_logger.py` | A `CustomLogger` callback: the fast tier in the pre-call hook (plus output rules post-call) and the slow LLM review post-call (see §3); writes the SQLite store (`data/aijudge.db`: sessions, stats, blocklist), logs and verdicts. |
 | Shared rules | `judge_rules.py` (repo root) | Side-effect-free fast rules (regex + validators, actions and weights), the slow-review threshold and description — the single source of truth for what's actually enforced, read by both the Judge and the dashboard. |
 | Judge Dashboard | `judge_ui/app.py`, `judge_ui/frontend/` | Standalone read-only view (plus the blocklist reset): fast and slow rules, fast-rule latency, per-session suspicion scores with a per-session drill-down (`/api/sessions/{id}`: exchanges, rule hits, judge prompts and replies), shadow-rule hit counts, verdict breakdown, token usage, unique sessions, requests/sec, blocklist. Independent process and port; no dependency on `chatui/`. |

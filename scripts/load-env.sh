@@ -4,7 +4,7 @@
 # and blank lines skipped.
 _aijudge_root="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 if [ ! -f "$_aijudge_root/.env" ]; then
-    echo "WARNING: .env not found at $_aijudge_root/.env - copy .env.example to .env and fill in GEMINI_API_KEY first." >&2
+    echo "WARNING: .env not found at $_aijudge_root/.env - copy .env.example to .env and fill in AZURE_API_KEY first." >&2
 else
     while IFS= read -r _line || [ -n "$_line" ]; do
         _line="${_line%$'\r'}"

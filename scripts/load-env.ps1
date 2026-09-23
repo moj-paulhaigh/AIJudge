@@ -2,7 +2,7 @@
 # environment: . .\scripts\load-env.ps1
 $envFile = Join-Path $PSScriptRoot "..\.env"
 if (-not (Test-Path $envFile)) {
-    Write-Warning ".env not found at $envFile - copy .env.example to .env and fill in GEMINI_API_KEY first."
+    Write-Warning ".env not found at $envFile - copy .env.example to .env and fill in AZURE_API_KEY first."
     return
 }
 Get-Content $envFile | ForEach-Object {

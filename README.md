@@ -1,6 +1,6 @@
 # AIJudge
 
-A LiteLLM proxy (fronting Gemini) with a test chat UI, full request/response
+A LiteLLM proxy (fronting Azure OpenAI) with a test chat UI, full request/response
 logging to local disk, and a two-tier "Judge": deterministic fast rules
 screen every exchange (and can block it outright), and an LLM judge reviews
 sessions whose suspicion score has built up. It can block a session's
@@ -16,9 +16,9 @@ chatui/backend (FastAPI, :8000)
    |  POST /chat/completions  (Authorization: Bearer LITELLM_MASTER_KEY)
    v
 LiteLLM proxy (litellm_proxy/, :4000)
-   |  gemini/gemini-3.6-flash
+  |  azure/gpt-5.6-luna
    v
-Gemini API
+Azure OpenAI API
 
 judge_ui (FastAPI, :8010) -- standalone, reads data/ directly, no
 dependency on chatui/backend or vice versa. Browse to it separately
@@ -40,7 +40,7 @@ The LiteLLM proxy runs a custom callback, `litellm_proxy/judge_logger.py`
   session's running **suspicion score** (minor signal +1, major +5). Output
   rules run after the response has gone back. **The time the fast rules add
   to each request is measured and stored per session**, and shown on both UIs.
-- **Slow** — the LLM judge (Gemini, called directly, bypassing the proxy so
+- **Slow** — the LLM judge (Azure OpenAI, called directly, bypassing the proxy so
   the judge never judges itself). Never run per exchange: when a session's
   score has climbed 5 since it was last reviewed, the LLM reviews the whole
   session (recent transcript + which fast rules fired), as a background task
@@ -58,7 +58,7 @@ parallel from the same browser tab without colliding. That id is forwarded
 to LiteLLM as the OpenAI `user` field, which is the identity the Judge
 blocks. Click "New Session" on a panel to get a fresh, unblocked identity
 without reloading the page. Each panel also shows a live pipeline
-visualization (Browser → Backend → LiteLLM → Gemini) that animates while a
+visualization (Browser → Backend → LiteLLM → Azure OpenAI) that animates while a
 request is in flight and shows round-trip time or where a rejection
 happened.
 
@@ -73,7 +73,8 @@ scripts/setup.sh                # macOS / Linux (needs Python 3.10+; on a Mac: b
 ```
 
 This creates `.venv`, installs `requirements.txt`, and copies `.env.example`
-to `.env`. Edit `.env` and set `GEMINI_API_KEY`.
+to `.env`. Edit `.env` and set `AZURE_API_KEY`, `AZURE_API_BASE`, and
+`AZURE_API_VERSION`.
 
 ## Running
 

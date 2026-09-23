@@ -58,7 +58,7 @@ STORE = judge_store.Store(DATA_DIR)
 
 LITELLM_BASE = os.environ.get("AIJUDGE_LITELLM_BASE", "http://localhost:4000")
 LITELLM_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
-CHAT_MODEL = os.environ.get("AIJUDGE_CHAT_MODEL", "gemini-flash")
+CHAT_MODEL = os.environ.get("AIJUDGE_CHAT_MODEL", "azure-gpt-5.6-luna")
 
 app = FastAPI(title="AIJudge")
 

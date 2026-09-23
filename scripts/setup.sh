@@ -14,5 +14,5 @@ command -v "$PYTHON" >/dev/null || { echo "python3 not found. On macOS: brew ins
 
 if [ ! -f "$root/.env" ]; then
     cp "$root/.env.example" "$root/.env"
-    echo "Created .env from .env.example - edit it and set GEMINI_API_KEY before running."
+    echo "Created .env from .env.example - edit it and set AZURE_API_KEY before running."
 fi
