@@ -231,7 +231,20 @@ async def judge_stats():
             "last_review": (s.get("reviews") or [None])[-1],
             "last_seen": s.get("last_seen", 0),
         })
-    sessions.sort(key=lambda s: (s["blocked"], s["score"], s["last_seen"]), reverse=True)
+    sessions.sort(
+        key=lambda s: (
+            not s["blocked"] and (s["last_review"] or {}).get("verdict") == "safe",
+            s["blocked"],
+            s["score"],
+            s["last_seen"],
+        ),
+        reverse=True,
+    )
+    reviewed_sessions = sorted(
+        (s for s in sessions if s["last_review"]),
+        key=lambda s: s["last_review"].get("ts", 0),
+        reverse=True,
+    )
 
     recent_verdicts = []
     if VERDICTS_DIR.exists():
@@ -270,6 +283,7 @@ async def judge_stats():
         "fast_latency": fast_latency,
         "slow_review_threshold": threshold,
         "sessions": sessions[:TOP_SESSIONS_SHOWN],
+        "reviewed_sessions": reviewed_sessions,
         "token_timeline": token_timeline,
         "top_sessions": top_sessions,
         "blocked_users": blocked_users,

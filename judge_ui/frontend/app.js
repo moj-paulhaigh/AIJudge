@@ -8,6 +8,10 @@ const rawPatternsEl = document.getElementById("raw-patterns");
 const latencyKpisEl = document.getElementById("latency-kpis");
 const sessionsHintEl = document.getElementById("sessions-hint");
 const sessionsBodyEl = document.getElementById("sessions-body");
+const reviewedSessionsBodyEl = document.getElementById("reviewed-sessions-body");
+const reviewVerdictFilterEl = document.getElementById("review-verdict-filter");
+const reviewSessionSearchEl = document.getElementById("review-session-search");
+const reviewedCountEl = document.getElementById("reviewed-count");
 const blockedListEl = document.getElementById("blocked-list");
 const verdictListEl = document.getElementById("verdict-list");
 const resetBlocklistBtn = document.getElementById("reset-blocklist-btn");
@@ -26,6 +30,7 @@ let rulesRendered = false;
 let shadowKey = "";
 let lastBlockedCount = 0;
 let openSessionId = null;
+let reviewedSessions = [];
 
 const detailEl = document.getElementById("session-detail");
 const detailBodyEl = document.getElementById("detail-body");
@@ -107,6 +112,38 @@ function renderSessions(data) {
         </tr>`;
     })
     .join("");
+}
+
+function renderReviewedSessions(data) {
+  if (data) reviewedSessions = data.reviewed_sessions || [];
+  const filter = reviewVerdictFilterEl.value;
+  const search = reviewSessionSearchEl.value.trim().toLowerCase();
+  const matches = reviewedSessions.filter((session) => {
+    const verdict = session.last_review.verdict;
+    const verdictMatches = filter === "all" || (filter === "other"
+      ? !["safe", "bad", "suspicious"].includes(verdict)
+      : verdict === filter);
+    return verdictMatches && session.session_id.toLowerCase().includes(search);
+  });
+  reviewedCountEl.textContent = `${fmtNumber(matches.length)} of ${fmtNumber(reviewedSessions.length)} reviewed sessions`;
+  if (!matches.length) {
+    reviewedSessionsBodyEl.innerHTML = `<tr><td colspan="6" class="empty">${reviewedSessions.length
+      ? "No sessions match this verdict and session ID"
+      : "No sessions sent to the judge yet"}</td></tr>`;
+    return;
+  }
+  reviewedSessionsBodyEl.innerHTML = matches.map((session) => {
+    const review = session.last_review;
+    const time = review.ts ? new Date(review.ts * 1000).toLocaleString() : "--";
+    return `<tr class="clickable${session.session_id === openSessionId ? " selected" : ""}" data-sid="${esc(session.session_id)}">
+      <td><button type="button" class="session-link" title="${esc(session.session_id)}" aria-label="Open session ${esc(session.session_id)}"><code>${esc(session.session_id.slice(0, 8))}</code></button></td>
+      <td><span class="tag ${verdictClass(review.verdict)}">${esc(review.verdict || "unknown")}</span></td>
+      <td class="review-reason">${esc(review.reason || "--")}</td>
+      <td>${fmtNumber(review.score_at_review)} / ${fmtNumber(session.score)}</td>
+      <td><span class="tag ${session.blocked ? "bad" : "safe"}">${session.blocked ? "blocked" : "active"}</span></td>
+      <td class="muted">${esc(time)}</td>
+    </tr>`;
+  }).join("");
 }
 
 function renderKpis(data) {
@@ -240,8 +277,34 @@ function renderTimeline(data) {
   timelineLegendEl.innerHTML = '<li><span class="swatch chat"></span>Chat</li><li><span class="swatch judge"></span>Judge</li>';
 }
 
+function renderTokenFlow(data) {
+  const t = data.totals;
+  const totalTokens = (t.total_tokens || 0) + (t.judge_overhead_tokens || 0);
+  const percentage = (value, total) => `${(total ? ((value || 0) / total) * 100 : 0).toFixed(1)}%`;
+  const values = {
+    "flow-input-tokens": fmtNumber(t.total_prompt_tokens),
+    "flow-output-tokens": fmtNumber(t.total_completion_tokens),
+    "flow-input-token-share": `${percentage(t.total_prompt_tokens, totalTokens)} of total tokens`,
+    "flow-output-token-share": `${percentage(t.total_completion_tokens, totalTokens)} of total tokens`,
+    "flow-judge-token-share": `${percentage(t.judge_overhead_tokens, totalTokens)} of total tokens`,
+    "flow-judge-call-share": percentage(t.judge_calls, t.total_requests),
+    "flow-input-sessions": fmtNumber(t.unique_sessions),
+    "flow-platform-sessions": fmtNumber(t.unique_sessions),
+    "flow-output-sessions": fmtNumber(t.unique_sessions),
+    "flow-platform-requests": `${fmtNumber(t.total_requests)} requests`,
+    "flow-judge-tokens": fmtNumber(t.judge_overhead_tokens),
+    "flow-judge-input": fmtNumber(t.judge_prompt_tokens),
+    "flow-judge-output": fmtNumber(t.judge_completion_tokens),
+    "flow-judge-calls": fmtNumber(t.judge_calls),
+  };
+  for (const [id, value] of Object.entries(values)) {
+    document.getElementById(id).textContent = value;
+  }
+}
+
 function renderTokens(data) {
   const t = data.totals;
+  renderTokenFlow(data);
   segBar(
     tokenShareBarEl,
     tokenShareLegendEl,
@@ -401,6 +464,7 @@ async function pollStats() {
     renderKpis(data);
     renderLatency(data);
     renderSessions(data);
+    renderReviewedSessions(data);
     renderStackbar(data);
     renderTokens(data);
     renderRulesOnce(data);
@@ -483,6 +547,12 @@ sessionsBodyEl.addEventListener("click", (ev) => {
   const row = ev.target.closest("tr[data-sid]");
   if (row) openSession(row.dataset.sid);
 });
+reviewedSessionsBodyEl.addEventListener("click", (ev) => {
+  const row = ev.target.closest("tr[data-sid]");
+  if (row) openSession(row.dataset.sid);
+});
+reviewVerdictFilterEl.addEventListener("change", () => renderReviewedSessions());
+reviewSessionSearchEl.addEventListener("input", () => renderReviewedSessions());
 document.getElementById("detail-refresh").addEventListener("click", () => openSessionId && openSession(openSessionId));
 document.getElementById("detail-close").addEventListener("click", () => {
   openSessionId = null;

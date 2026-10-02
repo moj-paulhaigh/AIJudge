@@ -15,6 +15,88 @@
   <main class="layout">
     <section class="kpi-row" id="kpi-row" aria-label="Key statistics"></section>
 
+    <section class="token-flow-section" aria-labelledby="token-flow-heading">
+      <div class="token-flow-heading">
+        <h2 id="token-flow-heading">Token Flow</h2>
+        <span class="token-flow-period">All-time usage</span>
+      </div>
+      <div class="token-flow" aria-label="Chat tokens flow from session input through the platform to session output, with a separate AI judge review branch">
+        <div class="flow-node flow-input">
+          <span class="flow-label">AI sessions input</span>
+          <strong class="flow-value" id="flow-input-tokens">--</strong>
+          <span class="flow-unit">input tokens</span>
+          <span class="flow-unit" id="flow-input-token-share">-- of total tokens</span>
+          <div class="flow-count" title="Unique sessions recorded by the platform, including blocked exchanges">
+            <span>Sessions tracked</span><strong id="flow-input-sessions">--</strong>
+          </div>
+        </div>
+        <div class="flow-connector flow-in-connector" aria-hidden="true"><span></span></div>
+        <div class="flow-node flow-platform">
+          <span class="flow-label">Platform</span>
+          <strong class="flow-platform-name">LiteLLM</strong>
+          <span class="flow-unit" id="flow-platform-requests">-- requests</span>
+          <div class="flow-count">
+            <span>Sessions tracked</span><strong id="flow-platform-sessions">--</strong>
+          </div>
+        </div>
+        <div class="flow-connector flow-out-connector" aria-hidden="true"><span></span></div>
+        <div class="flow-node flow-output">
+          <span class="flow-label">AI sessions output</span>
+          <strong class="flow-value" id="flow-output-tokens">--</strong>
+          <span class="flow-unit">output tokens</span>
+          <span class="flow-unit" id="flow-output-token-share">-- of total tokens</span>
+          <div class="flow-count" title="Unique sessions recorded by the platform, including blocked exchanges">
+            <span>Sessions tracked</span><strong id="flow-output-sessions">--</strong>
+          </div>
+        </div>
+        <div class="flow-review-connector">
+          <span><strong id="flow-judge-call-share">--%</strong><span>of requests</span></span>
+        </div>
+        <div class="flow-node flow-judge">
+          <div class="flow-judge-heading">
+            <span class="flow-label">AI judge reviews</span>
+          </div>
+          <strong class="flow-value" id="flow-judge-tokens">--</strong>
+          <span class="flow-unit">review tokens</span>
+          <span class="flow-unit" id="flow-judge-token-share">-- of total tokens</span>
+          <div class="flow-count" aria-live="polite" aria-atomic="true" title="Completed judge calls with reported token usage">
+            <span>Calls made</span><strong id="flow-judge-calls">--</strong>
+          </div>
+          <div class="flow-judge-split">
+            <span>Input <strong id="flow-judge-input">--</strong></span>
+            <span>Output <strong id="flow-judge-output">--</strong></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="reviewed-heading">
+      <h2 id="reviewed-heading">Suspicious Sessions</h2>
+      <div class="review-filters">
+        <label>Latest judge verdict
+          <select id="review-verdict-filter">
+            <option value="safe" selected>Safe (cleared by judge)</option>
+            <option value="bad">Bad</option>
+            <option value="suspicious">Suspicious</option>
+            <option value="other">Other / errors</option>
+            <option value="all">All reviewed sessions</option>
+          </select>
+        </label>
+        <label>Session ID
+          <input id="review-session-search" type="search" placeholder="Search sessions" />
+        </label>
+        <span class="muted" id="reviewed-count" aria-live="polite"></span>
+      </div>
+      <div class="table-scroll">
+        <table class="sessions-table" aria-labelledby="reviewed-heading">
+          <thead>
+            <tr><th>Session</th><th>Judge verdict</th><th>Judge reason</th><th>Score at review / now</th><th>Access</th><th>Last reviewed</th></tr>
+          </thead>
+          <tbody id="reviewed-sessions-body"><tr><td colspan="6" class="empty">No sessions sent to the judge yet</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="panel">
       <h2>Verdicts</h2>
       <div class="stackbar-wrap">

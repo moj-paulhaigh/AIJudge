@@ -152,8 +152,23 @@ scripts/load-test.sh --sessions 100 --bad-pct 30          # macOS / Linux
 Each session has its own id and conversation history. "Bad" sessions mix attack
 prompts (injection, secret requests, NI numbers, obfuscated variants, a low-and-slow
 probe) with ordinary turns; benign sessions send ordinary questions only. A blocked
-session stops (`--keep-going` makes it keep sending). At the end it prints request
-rate and latency, the detection rate for bad sessions and the false-positive rate
+session stops (`--keep-going` makes it keep sending). Sessions plan **10 turns**
+by default. Two sessions within the requested total accumulate minor signals:
+one probes the model's own system prompt, while the other asks benign questions
+about configuration documentation, secure key handling and maths tutoring.
+Each input adds +1, so the fifth successful turn reaches the current slow-review
+threshold. Both continue with more minor signals and a final ordinary turn.
+Assistant replies can add signals too; check the Judge Dashboard for actual
+reviews. The benign session should be judged safe, resetting its score; this is
+an expected outcome, not a detection failure.
+Use `--minor-sessions` to control the probing count and `--good-minor-sessions`
+for the benign count (default one each; zero disables either scenario). Their
+sum cannot exceed `--sessions`. `--bad-pct` applies to the remaining sessions.
+The output prints both session IDs and turn progress; `--out` labels them
+`minor-signals` and `good-minor-signals`. Blocks of the benign accumulation
+session count as false positives; blocks of the probing session count as
+detections.
+At the end it prints request rate and latency, the detection rate for bad sessions and the false-positive rate
 for benign ones. Other options: `--min-turns`/`--max-turns`, `--concurrency`,
 `--think`, `--ramp`, `--max-tokens`, `--seed` (repeatable run), `--out results.json`;
 `--help` lists them all. **Every request is a real Gemini call**, so start small and
@@ -180,6 +195,16 @@ Everything the Judge sees and decides is written under `AIJUDGE_DATA_DIR`
   requests/sec.
 
 Point `AIJUDGE_DATA_DIR` at any local path/drive to change where this lives.
+
+### Demo cleanup
+
+Stop all three services, then run `./scripts/cleanup.sh` to preview the data
+directory. Run `./scripts/cleanup.sh --apply` and type `DELETE` to permanently
+remove it, or use `--apply --yes` to skip confirmation. No backup is created:
+this removes session details, blocks, statistics, logs and verdicts, including
+any other files in that data directory. The script respects `AIJUDGE_DATA_DIR`
+and refuses cleanup while it detects the services running. Restart the services
+to create fresh storage, then refresh the chat page.
 
 ## Rules
 
