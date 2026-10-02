@@ -31,6 +31,9 @@ let shadowKey = "";
 let lastBlockedCount = 0;
 let openSessionId = null;
 let reviewedSessions = [];
+let detailRequest = 0;
+let detailReturnFocus = null;
+let detailReturnTableId = null;
 
 const detailEl = document.getElementById("session-detail");
 const detailBodyEl = document.getElementById("detail-body");
@@ -100,7 +103,7 @@ function renderSessions(data) {
         : '<span class="muted">&mdash;</span>';
       return `
         <tr class="clickable${s.session_id === openSessionId ? " selected" : ""}" data-sid="${esc(s.session_id)}">
-          <td title="${esc(s.session_id)}"><code>${esc(s.session_id.slice(0, 8))}</code></td>
+          <td><button type="button" class="session-link" title="${esc(s.session_id)}" aria-label="Open session ${esc(s.session_id)}"><code>${esc(s.session_id.slice(0, 8))}</code></button></td>
           <td>
             <div class="score-cell"><div class="score-track"><div class="score-fill${pending >= threshold ? " hot" : ""}" style="width:${pct}%"></div></div>
             <span>${s.score}</span></div>
@@ -170,11 +173,6 @@ function renderKpis(data) {
       label: "Fast-rule Latency (avg)",
       value: fmtMs(data.fast_latency.avg_ms),
       sub: `p95 ${fmtMs(data.fast_latency.p95_ms)} · ${fmtNumber(data.fast_latency.checks)} checks`,
-    },
-    {
-      label: "Judge Overhead Tokens",
-      value: fmtNumber(t.judge_overhead_tokens),
-      sub: `${fmtNumber(t.judge_prompt_tokens)} prompt / ${fmtNumber(t.judge_completion_tokens)} completion`,
     },
   ];
 
@@ -475,6 +473,23 @@ async function pollStats() {
   }
 }
 
+function showDashboardView() {
+  const requested = window.location.hash.slice(1);
+  const view = ["overview", "sessions", "usage", "rules"].includes(requested) ? requested : "overview";
+  for (const section of document.querySelectorAll("[data-view]")) {
+    section.hidden = section.dataset.view !== view;
+  }
+  for (const link of document.querySelectorAll("[data-nav-view]")) {
+    if (link.dataset.navView === view) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
+}
+
+window.addEventListener("hashchange", showDashboardView);
+document.querySelector(".dashboard-nav").addEventListener("click", (ev) => {
+  if (ev.target.closest('a[href^="#"]')) window.scrollTo({ top: 0, behavior: "auto" });
+});
+showDashboardView();
 pollStats();
 setInterval(pollStats, 3000);
 
@@ -484,7 +499,7 @@ setInterval(pollStats, 3000);
 const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString() : "");
 const verdictClass = (v) => (["safe", "suspicious", "bad"].includes(v) ? v : "suspicious");
 
-function renderExchange(e) {
+function renderExchange(e, index) {
   const rules = (e.fast_rules || []).map((r) => `<span class="tag suspicious">${esc(r)}</span>`).join(" ");
   const shadow = (e.shadow_rules || []).map((r) => `<span class="tag shadow">${esc(r)} (shadow)</span>`).join(" ");
   const judge = e.judge
@@ -496,6 +511,7 @@ function renderExchange(e) {
   return `
     <div class="exchange">
       <div class="exchange-head">
+        <strong class="exchange-number">${index + 1}</strong>
         <span class="muted">${esc(fmtTime(e.timestamp))}</span>
         <span class="tag ${verdictClass(e.verdict)}">${esc(e.verdict)}</span>
         <span class="muted">path: ${esc(e.judge_path || "?")}</span>
@@ -503,8 +519,10 @@ function renderExchange(e) {
         ${rules} ${shadow}
       </div>
       <div class="exchange-reason">${esc(e.reason || "")}</div>
-      <h4>User</h4><pre>${esc(e.user_text || "")}</pre>
-      <h4>Assistant</h4><pre>${esc(e.output || "")}</pre>
+      <div class="exchange-messages">
+        <div><h4>User</h4><pre>${esc(e.user_text || "")}</pre></div>
+        <div><h4>Assistant</h4><pre>${esc(e.output || "")}</pre></div>
+      </div>
       <details><summary>Full input sent to the model</summary><pre>${esc(e.input || "")}</pre></details>
       ${judge}
     </div>`;
@@ -513,48 +531,88 @@ function renderExchange(e) {
 function renderSessionDetail(d) {
   const threshold = d.slow_review_threshold;
   const reviews = (d.reviews || [])
-    .map((r) => `<li><span class="tag ${verdictClass(r.verdict)}">${esc(r.verdict)}</span>
-      <span class="muted">at score ${r.score_at_review} &middot; ${esc(new Date(r.ts * 1000).toLocaleTimeString())}</span>
-      &mdash; ${esc(r.reason || "")}</li>`)
+    .slice().reverse()
+    .map((r) => `<li><div class="review-meta"><span class="tag ${verdictClass(r.verdict)}">${esc(r.verdict)}</span>
+      <span>score ${fmtNumber(r.score_at_review)}</span><time>${esc(new Date(r.ts * 1000).toLocaleString())}</time></div>
+      <p>${esc(r.reason || "No reason recorded")}</p></li>`)
     .join("");
+  const latestReview = (d.reviews || []).at(-1);
   const trail = d.exchanges.map((e) => e.session_score ?? 0);
   detailBodyEl.innerHTML = `
-    <p><code>${esc(d.session_id)}</code>
-      ${d.blocked ? '<span class="tag bad">blocked</span>' : '<span class="tag safe">not blocked</span>'}
-      <span class="muted">score ${d.score} (reviewed to ${d.reviewed_score}, review at +${threshold}) &middot; ${d.requests} requests</span></p>
-    ${trail.length ? `<p class="muted">Score after each exchange: ${trail.join(" &rarr; ")}</p>` : ""}
-    <h3>Slow-tier reviews</h3>
-    ${reviews ? `<ul class="review-list">${reviews}</ul>` : '<p class="muted">No LLM review has run for this session.</p>'}
-    <h3>Exchanges (${d.exchanges.length}, oldest first)</h3>
-    ${d.exchanges.map(renderExchange).join("") || '<p class="muted">No logged exchanges (verdict files) for this session.</p>'}`;
+    <div class="detail-status">
+      <span class="tag ${d.blocked ? "bad" : "safe"}">${d.blocked ? "Blocked" : "Active"}</span>
+      ${latestReview ? `<span class="muted">Latest judge verdict</span><span class="tag ${verdictClass(latestReview.verdict)}">${esc(latestReview.verdict)}</span>` : '<span class="muted">Not yet reviewed by the judge</span>'}
+    </div>
+    <dl class="detail-metrics">
+      <div><dt>Requests</dt><dd>${fmtNumber(d.requests)}</dd></div>
+      <div><dt>Current score</dt><dd>${fmtNumber(d.score)}</dd><small>Reviewed through ${fmtNumber(d.reviewed_score)}</small></div>
+      <div><dt>Review threshold</dt><dd>+${fmtNumber(threshold)}</dd></div>
+      <div><dt>Retained reviews</dt><dd>${fmtNumber((d.reviews || []).length)}</dd></div>
+    </dl>
+    ${trail.length ? `<div class="detail-score-trail"><span>Score history</span><strong>${trail.map(esc).join(" &rarr; ")}</strong></div>` : ""}
+    <div class="detail-section-heading"><h3>Judge reviews</h3><span class="muted">Latest first</span></div>
+    ${reviews ? `<ol class="review-list">${reviews}</ol>` : '<p class="detail-empty">No LLM review has run for this session.</p>'}
+    <div class="detail-section-heading"><h3>Exchange history <span>${fmtNumber(d.exchanges.length)}</span></h3><span class="muted">Newest first</span></div>
+    ${d.exchanges.map(renderExchange).reverse().join("") || '<p class="muted">No logged exchanges (verdict files) for this session.</p>'}`;
 }
 
-async function openSession(sid) {
+async function openSession(sid, opener = document.activeElement) {
+  const request = ++detailRequest;
   openSessionId = sid;
-  detailEl.hidden = false;
-  detailBodyEl.innerHTML = '<p class="muted">Loading&hellip;</p>';
+  document.getElementById("detail-session-id").textContent = sid;
+  if (!detailEl.open) {
+    detailReturnFocus = opener;
+    detailReturnTableId = opener.closest("tbody")?.id;
+    detailEl.showModal();
+  }
+  document.body.classList.add("dialog-open");
+  document.getElementById("detail-refresh").disabled = true;
+  detailBodyEl.innerHTML = '<div class="detail-loading" role="status"><span class="detail-spinner" aria-hidden="true"></span>Loading session...</div>';
+  detailBodyEl.scrollTop = 0;
   try {
     const res = await fetch("/api/sessions/" + encodeURIComponent(sid));
     if (!res.ok) throw new Error(res.status === 404 ? "No data for this session." : "HTTP " + res.status);
-    renderSessionDetail(await res.json());
+    const data = await res.json();
+    if (request === detailRequest && detailEl.open) renderSessionDetail(data);
   } catch (err) {
-    detailBodyEl.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
+    if (request === detailRequest && detailEl.open) {
+      detailBodyEl.innerHTML = `<div class="detail-error" role="alert"><strong>Session unavailable</strong><p>${esc(err.message)}</p></div>`;
+    }
+  } finally {
+    if (request === detailRequest) document.getElementById("detail-refresh").disabled = false;
   }
-  detailEl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 sessionsBodyEl.addEventListener("click", (ev) => {
   const row = ev.target.closest("tr[data-sid]");
-  if (row) openSession(row.dataset.sid);
+  if (row) openSession(row.dataset.sid, row.querySelector(".session-link"));
 });
 reviewedSessionsBodyEl.addEventListener("click", (ev) => {
   const row = ev.target.closest("tr[data-sid]");
-  if (row) openSession(row.dataset.sid);
+  if (row) openSession(row.dataset.sid, row.querySelector(".session-link"));
 });
 reviewVerdictFilterEl.addEventListener("change", () => renderReviewedSessions());
 reviewSessionSearchEl.addEventListener("input", () => renderReviewedSessions());
 document.getElementById("detail-refresh").addEventListener("click", () => openSessionId && openSession(openSessionId));
-document.getElementById("detail-close").addEventListener("click", () => {
+document.getElementById("detail-close").addEventListener("click", () => detailEl.close());
+detailEl.addEventListener("close", () => {
+  const sid = openSessionId;
   openSessionId = null;
-  detailEl.hidden = true;
+  detailRequest++;
+  document.body.classList.remove("dialog-open");
+  document.getElementById("detail-refresh").disabled = false;
+  const table = detailReturnTableId && document.getElementById(detailReturnTableId);
+  const replacement = table && [...table.querySelectorAll("tr[data-sid]")]
+    .find((row) => row.dataset.sid === sid)?.querySelector(".session-link");
+  const target = detailReturnFocus?.isConnected ? detailReturnFocus : replacement;
+  if (target?.getClientRects().length) target.focus();
+  else document.querySelector('[data-nav-view][aria-current="page"]').focus();
+  detailReturnFocus = null;
+  detailReturnTableId = null;
+});
+detailEl.addEventListener("click", (ev) => {
+  const bounds = detailEl.getBoundingClientRect();
+  if (ev.target === detailEl && (ev.clientX < bounds.left || ev.clientX > bounds.right || ev.clientY < bounds.top || ev.clientY > bounds.bottom)) {
+    detailEl.close();
+  }
 });

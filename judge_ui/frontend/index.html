@@ -12,10 +12,33 @@
     <p class="subtitle">Standalone view of what the Judge is doing — independent of the chat test UI. Reads <code>data/</code> directly.</p>
   </header>
 
-  <main class="layout">
-    <section class="kpi-row" id="kpi-row" aria-label="Key statistics"></section>
+  <nav class="dashboard-nav" aria-label="Dashboard sections">
+    <a class="nav-brand" href="#overview" aria-label="Judge Dashboard overview">
+      <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="nav-icons.svg#brand"></use></svg>
+      <span class="nav-label" role="tooltip">AIJudge</span>
+    </a>
+    <a href="#overview" data-nav-view="overview" aria-current="page" aria-label="Overview">
+      <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="nav-icons.svg#overview"></use></svg>
+      <span class="nav-label" role="tooltip">Overview</span>
+    </a>
+    <a href="#sessions" data-nav-view="sessions" aria-label="Sessions">
+      <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="nav-icons.svg#sessions"></use></svg>
+      <span class="nav-label" role="tooltip">Sessions</span>
+    </a>
+    <a href="#usage" data-nav-view="usage" aria-label="Usage">
+      <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="nav-icons.svg#usage"></use></svg>
+      <span class="nav-label" role="tooltip">Usage</span>
+    </a>
+    <a href="#rules" data-nav-view="rules" aria-label="Rules">
+      <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="nav-icons.svg#rules"></use></svg>
+      <span class="nav-label" role="tooltip">Rules</span>
+    </a>
+  </nav>
 
-    <section class="token-flow-section" aria-labelledby="token-flow-heading">
+  <main class="layout">
+    <section class="kpi-row" id="kpi-row" aria-label="Key statistics" data-view="overview"></section>
+
+    <section class="token-flow-section" aria-labelledby="token-flow-heading" data-view="overview">
       <div class="token-flow-heading">
         <h2 id="token-flow-heading">Token Flow</h2>
         <span class="token-flow-period">All-time usage</span>
@@ -70,7 +93,7 @@
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="reviewed-heading">
+    <section class="panel" aria-labelledby="reviewed-heading" data-view="sessions" hidden>
       <h2 id="reviewed-heading">Suspicious Sessions</h2>
       <div class="review-filters">
         <label>Latest judge verdict
@@ -97,7 +120,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-view="overview">
       <h2>Verdicts</h2>
       <div class="stackbar-wrap">
         <div class="stackbar" id="stackbar"></div>
@@ -105,7 +128,7 @@
       <ul class="stackbar-legend" id="stackbar-legend"></ul>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-view="usage" hidden>
       <h2>Token Consumption</h2>
       <p class="hint">Where tokens are spent across the solution. Chat = user-facing calls through LiteLLM; Judge = the slow-tier LLM review's own calls (only made when a session's suspicion score crosses the threshold).</p>
       <div class="token-grid">
@@ -129,13 +152,13 @@
       <div id="token-sessions" class="hbars"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-view="usage" hidden>
       <h2>Fast-rule Latency</h2>
       <p class="hint">Time the deterministic fast rules add to a request. They run in the LiteLLM pre-call hook, so this is added latency on the request path (file writes are excluded from the measurement). Percentiles are over the most recent checks.</p>
       <div class="kpi-row" id="latency-kpis"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-view="sessions" hidden>
       <h2>Session Suspicion</h2>
       <p class="hint" id="sessions-hint"></p>
       <p class="hint">Click a session to see every exchange, its rule hits and the judge's verdicts.</p>
@@ -149,46 +172,47 @@
       </div>
     </section>
 
-    <section class="panel" id="session-detail" hidden>
-      <div class="detail-head">
-        <h2>Session detail</h2>
-        <div>
-          <button type="button" id="detail-refresh">Refresh</button>
-          <button type="button" id="detail-close">Close</button>
-        </div>
-      </div>
-      <div id="detail-body"></div>
+    <section class="panel" data-view="rules" hidden>
+      <h2>Active Rules</h2>
+      <p class="hint" id="rules-hint"></p>
+      <h3>Fast &mdash; deterministic, every exchange</h3>
+      <ol class="rules-list" id="rules-list"></ol>
+      <h3>Slow &mdash; LLM review</h3>
+      <ol class="rules-list" id="slow-rules-list"></ol>
+
+      <details class="raw-patterns">
+        <summary>Raw pattern source (regex)</summary>
+        <div class="raw-block" id="raw-patterns"></div>
+      </details>
     </section>
 
-    <div class="two-col">
-      <section class="panel">
-        <h2>Active Rules</h2>
-        <p class="hint" id="rules-hint"></p>
-        <h3>Fast &mdash; deterministic, every exchange</h3>
-        <ol class="rules-list" id="rules-list"></ol>
-        <h3>Slow &mdash; LLM review</h3>
-        <ol class="rules-list" id="slow-rules-list"></ol>
+    <section class="panel" data-view="sessions" hidden>
+      <div class="panel-head">
+        <h2>Blocked Sessions</h2>
+        <button type="button" id="reset-blocklist-btn" class="reset-btn">Reset Blocked Sessions</button>
+      </div>
+      <ul class="blocked-list" id="blocked-list"><li class="empty">None yet</li></ul>
+    </section>
 
-        <details class="raw-patterns">
-          <summary>Raw pattern source (regex)</summary>
-          <div class="raw-block" id="raw-patterns"></div>
-        </details>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Blocked Sessions</h2>
-          <button type="button" id="reset-blocklist-btn" class="reset-btn">Reset Blocked Sessions</button>
-        </div>
-        <ul class="blocked-list" id="blocked-list"><li class="empty">None yet</li></ul>
-      </section>
-    </div>
-
-    <section class="panel">
+    <section class="panel" data-view="sessions" hidden>
       <h2>Recent Verdicts</h2>
       <ul class="verdict-list" id="verdict-list"><li class="empty">None yet</li></ul>
     </section>
   </main>
+
+  <dialog class="session-dialog" id="session-detail" aria-labelledby="detail-title" aria-describedby="detail-session-id">
+    <div class="detail-head">
+      <div class="detail-heading">
+        <span class="detail-heading-icon"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="nav-icons.svg#sessions"></use></svg></span>
+        <div><h2 id="detail-title">Session details</h2><code id="detail-session-id"></code></div>
+      </div>
+      <div class="detail-actions">
+        <button type="button" id="detail-refresh" aria-label="Refresh session" title="Refresh session"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="nav-icons.svg#refresh"></use></svg></button>
+        <button type="button" id="detail-close" aria-label="Close session details" title="Close session details" autofocus><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="nav-icons.svg#close"></use></svg></button>
+      </div>
+    </div>
+    <div id="detail-body" class="detail-body"></div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>
